@@ -1,7 +1,7 @@
 env_files = [ './butler.env' ]
 
 [env]
-PROJECT_NAME = 'kpacubo'
+PROJECT_NAME = 'abomination'
 WINDOWS_TARGET = 'x86_64-pc-windows-msvc'
 
 [tasks.prepare-release-dir]
