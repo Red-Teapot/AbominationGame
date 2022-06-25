@@ -21,3 +21,14 @@ pub fn wallet_display(mut query: Query<(&mut Text, &WalletDisplay)>, wallet: Res
         text.sections[0].value = value.to_string();
     }
 }
+
+pub fn buy_item(mut commands: Commands, query: Query<(&Interaction, &BuyItemButton), Changed<Interaction>>, mut wallet: ResMut<Wallet>) {
+    for (interaction, buy_item_btn) in query.iter() {
+        match interaction {
+            Interaction::Clicked => if wallet.try_spend(buy_item_btn.cost) {
+                info!("YAY");
+            },
+            _ => ()
+        }
+    }
+}

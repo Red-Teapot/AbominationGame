@@ -2,14 +2,15 @@ use bevy::math::{vec2, vec3};
 use bevy::prelude::*;
 use bevy::render::camera::ScalingMode;
 use bevy::sprite::Anchor;
+use bevy::ui::FocusPolicy;
 use bevy_ecs_tilemap::prelude::*;
 use bevy_inspector_egui::InspectorPlugin;
 
 use crate::{GameState, palette, PreloadedAssets};
-use crate::assets::{GameplayAssets, UIAssets};
-use crate::gameplay::components::{CoreSpinner, DEFAULT_HEALTH, Health, Species, WalletDisplay};
-use crate::gameplay::resources::Wallet;
-use crate::gameplay::systems::{core_spinner, wallet_display};
+use crate::assets::*;
+use crate::gameplay::components::*;
+use crate::gameplay::resources::*;
+use crate::gameplay::systems::*;
 
 mod components;
 mod bundles;
@@ -21,7 +22,8 @@ pub fn register_systems(app: &mut App) {
 
     app.add_system_set(SystemSet::on_update(GameState::Gameplay)
         .with_system(core_spinner)
-        .with_system(wallet_display));
+        .with_system(wallet_display)
+        .with_system(buy_item));
 
     app.add_plugin(InspectorPlugin::<Wallet>::new());
 }
@@ -41,9 +43,7 @@ pub fn gameplay_enter(mut commands: Commands,
     world_camera.orthographic_projection.scale = 1.0 / 3.0;
     commands.spawn_bundle(world_camera);
 
-    let mut ui_camera = UiCameraBundle::default();
-    ui_camera.orthographic_projection.scale = 1.0 / 3.0;
-    commands.spawn_bundle(ui_camera);
+    commands.spawn_bundle(UiCameraBundle::default());
 
     let map_entity = commands.spawn().id();
     let mut map = Map::new(0, map_entity);
@@ -93,7 +93,7 @@ pub fn gameplay_enter(mut commands: Commands,
 
     commands.spawn_bundle(NodeBundle {
         style: Style {
-            size: Size::new(Val::Percent(100.0 / 3.0), Val::Percent(100.0 / 3.0)),
+            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
             align_items: AlignItems::Stretch,
             justify_content: JustifyContent::SpaceBetween,
             flex_direction: FlexDirection::ColumnReverse,
@@ -125,18 +125,18 @@ pub fn gameplay_enter(mut commands: Commands,
             color: Color::NONE.into(),
             ..default()
         }).with_children(|panel| {
-            insert_cost_info(panel, Species::Red, 5, game_assets.connector.clone(), &game_assets, &pre_assets, &ui_assets);
+            insert_cost_info(panel, Money::new(Species::Red, 5), Item::Connector, &game_assets, &pre_assets, &ui_assets);
 
-            insert_cost_info(panel, Species::Red, 10, game_assets.cannon_red.clone(), &game_assets, &pre_assets, &ui_assets);
-            insert_cost_info(panel, Species::Green, 10, game_assets.cannon_green.clone(), &game_assets, &pre_assets, &ui_assets);
-            insert_cost_info(panel, Species::Blue, 10, game_assets.cannon_blue.clone(), &game_assets, &pre_assets, &ui_assets);
+            insert_cost_info(panel, Money::new(Species::Red, 10), Item::RedCannon, &game_assets, &pre_assets, &ui_assets);
+            insert_cost_info(panel, Money::new(Species::Green, 10), Item::GreenCannon, &game_assets, &pre_assets, &ui_assets);
+            insert_cost_info(panel, Money::new(Species::Blue, 10), Item::BlueCannon, &game_assets, &pre_assets, &ui_assets);
 
-            insert_cost_info(panel, Species::Red, 10, game_assets.converter_red_green.clone(), &game_assets, &pre_assets, &ui_assets);
-            insert_cost_info(panel, Species::Red, 10, game_assets.converter_red_blue.clone(), &game_assets, &pre_assets, &ui_assets);
-            insert_cost_info(panel, Species::Green, 10, game_assets.converter_green_red.clone(), &game_assets, &pre_assets, &ui_assets);
-            insert_cost_info(panel, Species::Green, 10, game_assets.converter_green_blue.clone(), &game_assets, &pre_assets, &ui_assets);
-            insert_cost_info(panel, Species::Blue, 10, game_assets.converter_blue_red.clone(), &game_assets, &pre_assets, &ui_assets);
-            insert_cost_info(panel, Species::Blue, 10, game_assets.converter_blue_green.clone(), &game_assets, &pre_assets, &ui_assets);
+            insert_cost_info(panel, Money::new(Species::Red, 10), Item::ConverterRedGreen, &game_assets, &pre_assets, &ui_assets);
+            insert_cost_info(panel, Money::new(Species::Red, 10), Item::ConverterRedBlue, &game_assets, &pre_assets, &ui_assets);
+            insert_cost_info(panel, Money::new(Species::Green, 10), Item::ConverterGreenRed, &game_assets, &pre_assets, &ui_assets);
+            insert_cost_info(panel, Money::new(Species::Green, 10), Item::ConverterGreenBlue, &game_assets, &pre_assets, &ui_assets);
+            insert_cost_info(panel, Money::new(Species::Blue, 10), Item::ConverterBlueRed, &game_assets, &pre_assets, &ui_assets);
+            insert_cost_info(panel, Money::new(Species::Blue, 10), Item::ConverterBlueGreen, &game_assets, &pre_assets, &ui_assets);
         });
     });
 }
@@ -165,7 +165,7 @@ fn insert_wallet_info(parent: &mut ChildBuilder, species: Species, ui_assets: &U
         section.spawn_bundle(NodeBundle {
             image: UiImage(image(species)),
             style: Style {
-                size: Size::new(Val::Px(24.0), Val::Px(24.0)),
+                size: Size::new(Val::Px(24.0 * 3.0), Val::Px(24.0 * 3.0)),
                 ..default()
             },
             ..default()
@@ -177,19 +177,19 @@ fn insert_wallet_info(parent: &mut ChildBuilder, species: Species, ui_assets: &U
                 color: color(species),
             }, TextAlignment::default()),
             transform: Transform {
-                scale: vec3(0.25, 0.25, 1.0),
+                scale: vec3(0.25, 0.25, 1.0) * 3.0,
                 ..default()
             },
             style: Style {
                 position: Rect {
                     left: Val::Px(0.0),
-                    right: Val::Px(10.0),
-                    top: Val::Px(5.0),
-                    bottom: Val::Px(0.0),
+                    right: Val::Px(0.0),
+                    top: Val::Px(0.0),
+                    bottom: Val::Px(3.0),
                 },
                 size: Size {
-                    width: Val::Px(36.0),
-                    height: Val::Px(24.0),
+                    width: Val::Px(36.0 * 3.0),
+                    height: Val::Px(24.0 * 3.0),
                 },
                 ..default()
             },
@@ -199,30 +199,38 @@ fn insert_wallet_info(parent: &mut ChildBuilder, species: Species, ui_assets: &U
 }
 
 fn insert_cost_info(parent: &mut ChildBuilder,
-                    currency: Species,
-                    cost: u32,
-                    icon: Handle<Image>,
+                    cost: Money,
+                    item: Item,
                     game_assets: &GameplayAssets,
                     pre_assets: &PreloadedAssets,
                     ui_assets: &UIAssets) {
 
-    fn color(species: Species) -> Color {
-        match species {
-            Species::Red => palette::RED,
-            Species::Green => palette::GREEN,
-            Species::Blue => palette::BLUE,
-        }
-    }
-
-    let image = |species: Species| -> (Handle<Image>, Vec2) {
-        match species {
-            Species::Red => (ui_assets.red_square_small.clone(), vec2(5.0, 5.0)),
-            Species::Green => (ui_assets.green_triangle_small.clone(), vec2(7.0, 4.0)),
-            Species::Blue => (ui_assets.blue_circle_small.clone(), vec2(6.0, 6.0)),
-        }
+    let money_color = match cost.species {
+        Species::Red => palette::RED,
+        Species::Green => palette::GREEN,
+        Species::Blue => palette::BLUE,
     };
 
-    parent.spawn_bundle(NodeBundle {
+    let money_image = match cost.species {
+        Species::Red => (ui_assets.red_square_small.clone(), vec2(5.0, 5.0)),
+        Species::Green => (ui_assets.green_triangle_small.clone(), vec2(7.0, 4.0)),
+        Species::Blue => (ui_assets.blue_circle_small.clone(), vec2(6.0, 6.0)),
+    };
+
+    let item_image = match item {
+        Item::Connector => game_assets.connector.clone(),
+        Item::RedCannon => game_assets.cannon_red.clone(),
+        Item::GreenCannon => game_assets.cannon_green.clone(),
+        Item::BlueCannon => game_assets.cannon_blue.clone(),
+        Item::ConverterRedGreen => game_assets.converter_red_green.clone(),
+        Item::ConverterRedBlue => game_assets.converter_red_blue.clone(),
+        Item::ConverterGreenRed => game_assets.converter_green_red.clone(),
+        Item::ConverterGreenBlue => game_assets.converter_green_blue.clone(),
+        Item::ConverterBlueRed => game_assets.converter_blue_red.clone(),
+        Item::ConverterBlueGreen => game_assets.converter_blue_green.clone(),
+    };
+
+    parent.spawn_bundle(ButtonBundle {
         color: Color::NONE.into(),
         style: Style {
             flex_direction: FlexDirection::ColumnReverse,
@@ -232,11 +240,12 @@ fn insert_cost_info(parent: &mut ChildBuilder,
         ..default()
     }).with_children(|section| {
         section.spawn_bundle(NodeBundle {
-            image: UiImage(icon),
+            image: UiImage(item_image),
             style: Style {
-                size: Size::new(Val::Px(24.0), Val::Px(24.0)),
+                size: Size::new(Val::Px(24.0 * 3.0), Val::Px(24.0 * 3.0)),
                 ..default()
             },
+            focus_policy: FocusPolicy::Pass,
             ..default()
         });
 
@@ -246,32 +255,33 @@ fn insert_cost_info(parent: &mut ChildBuilder,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 size: Size {
-                    width: Val::Px(32.0),
+                    width: Val::Px(32.0 * 3.0),
                     ..default()
                 },
                 ..default()
             },
+            focus_policy: FocusPolicy::Pass,
             ..default()
         }).with_children(|line| {
-            let (cur_img, cur_size) = image(currency);
+            let (cur_img, cur_size) = money_image;
 
             line.spawn_bundle(NodeBundle {
                 image: UiImage(cur_img),
                 style: Style {
-                    size: Size::new(Val::Px(cur_size.x), Val::Px(cur_size.y)),
+                    size: Size::new(Val::Px(cur_size.x * 3.0), Val::Px(cur_size.y * 3.0)),
                     ..default()
                 },
                 ..default()
             });
 
             line.spawn_bundle(TextBundle {
-                text: Text::with_section(cost.to_string(), TextStyle {
+                text: Text::with_section(cost.amount.to_string(), TextStyle {
                     font: pre_assets.font.clone(),
                     font_size: 56.0,
-                    color: color(currency),
+                    color: money_color,
                 }, default()),
                 transform: Transform {
-                    scale: vec3(0.25, 0.25, 1.0),
+                    scale: vec3(0.25, 0.25, 1.0) * 3.0,
                     ..default()
                 },
                 style: Style {
@@ -280,13 +290,16 @@ fn insert_cost_info(parent: &mut ChildBuilder,
                         ..default()
                     },
                     size: Size {
-                        width: Val::Px(16.0),
-                        height: Val::Px(12.0),
+                        width: Val::Px(16.0 * 3.0),
+                        height: Val::Px(12.0 * 3.0),
                     },
                     ..default()
                 },
                 ..default()
             });
         });
+    }).insert(BuyItemButton {
+        cost,
+        item,
     });
 }

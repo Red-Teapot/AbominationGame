@@ -18,3 +18,38 @@ pub enum Species {
 
 #[derive(Component)]
 pub struct WalletDisplay(pub Species);
+
+#[derive(Component, Copy, Clone)]
+pub struct Money {
+    pub species: Species,
+    pub amount: u32,
+}
+
+impl Money {
+    pub fn new(species: Species, amount: u32) -> Money {
+        Money {
+            species,
+            amount,
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum Item {
+    Connector,
+    RedCannon,
+    GreenCannon,
+    BlueCannon,
+    ConverterRedGreen,
+    ConverterRedBlue,
+    ConverterGreenRed,
+    ConverterGreenBlue,
+    ConverterBlueRed,
+    ConverterBlueGreen,
+}
+
+#[derive(Component)]
+pub struct BuyItemButton {
+    pub cost: Money,
+    pub item: Item,
+}
