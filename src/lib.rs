@@ -6,5 +6,6 @@ mod loading;
 mod assets;
 mod game;
 mod gameplay;
+mod lose;
 
 pub use game::*;

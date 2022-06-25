@@ -1,17 +1,19 @@
-use bevy::math::vec3;
+use std::f32::consts::PI;
+use bevy::math::{vec2, vec3};
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
 use bevy_ecs_tilemap::{Map, MapQuery, MapTileError, Tile, TilePos};
+use rand::random;
 use gameplay::{TILE_CORE, TILE_CONNECTOR};
 use crate::assets::GameplayAssets;
-use crate::gameplay;
+use crate::{gameplay, GameState};
 use crate::gameplay::components::*;
-use crate::gameplay::resources::Wallet;
+use crate::gameplay::resources::{MonsterSpawnCooldown, Wallet};
 use crate::gameplay::{TILE_CANNON, TILE_NONE};
 
 pub fn core_spinner(mut query: Query<&mut Transform, With<CoreSpinner>>, time: Res<Time>) {
     for mut transform in query.iter_mut() {
-        transform.rotate(Quat::from_rotation_z(5.375 * time.delta_seconds()));
+        transform.rotate(Quat::from_rotation_z(-5.375 * time.delta_seconds()));
     }
 }
 
@@ -175,9 +177,15 @@ pub fn drag_ghost(windows: Res<Windows>,
 
                     let cannon_head = commands.spawn_bundle(SpriteBundle {
                         texture: game_assets.cannon_red.clone(),
-                        transform: *ghost_transform,
+                        transform: Transform {
+                            translation: vec3(ghost_transform.translation.x, ghost_transform.translation.y, 0.3),
+                            ..default()
+                        },
                         ..default()
-                    }).insert(Cannon(Species::Red)).id();
+                    }).insert(Cannon {
+                        species: Species::Red,
+                        cooldown: 0.0,
+                    }).id();
 
                     commands.entity(cannon_entity).insert(CannonBase(cannon_head));
                 }
@@ -194,9 +202,15 @@ pub fn drag_ghost(windows: Res<Windows>,
 
                     let cannon_head = commands.spawn_bundle(SpriteBundle {
                         texture: game_assets.cannon_green.clone(),
-                        transform: *ghost_transform,
+                        transform: Transform {
+                            translation: vec3(ghost_transform.translation.x, ghost_transform.translation.y, 0.3),
+                            ..default()
+                        },
                         ..default()
-                    }).insert(Cannon(Species::Green)).id();
+                    }).insert(Cannon {
+                        species: Species::Green,
+                        cooldown: 0.0,
+                    }).id();
 
                     commands.entity(cannon_entity).insert(CannonBase(cannon_head));
                 }
@@ -213,9 +227,15 @@ pub fn drag_ghost(windows: Res<Windows>,
 
                     let cannon_head = commands.spawn_bundle(SpriteBundle {
                         texture: game_assets.cannon_blue.clone(),
-                        transform: *ghost_transform,
+                        transform: Transform {
+                            translation: vec3(ghost_transform.translation.x, ghost_transform.translation.y, 0.3),
+                            ..default()
+                        },
                         ..default()
-                    }).insert(Cannon(Species::Blue)).id();
+                    }).insert(Cannon {
+                        species: Species::Blue,
+                        cooldown: 0.0,
+                    }).id();
 
                     commands.entity(cannon_entity).insert(CannonBase(cannon_head));
                 }
@@ -229,3 +249,156 @@ pub fn drag_ghost(windows: Res<Windows>,
     }
 }
 
+pub fn update_cannons(mut cannon_query: Query<(&mut Transform, &GlobalTransform, &mut Cannon), Without<Monster>>,
+                      mut monster_query: Query<(&GlobalTransform, &Monster)>,
+                      time: Res<Time>,
+                      mut commands: Commands,
+                      game_assets: Res<GameplayAssets>)
+{
+    for (mut cannon_transform, cannon_glob_transform, mut cannon) in cannon_query.iter_mut() {
+        let mut distance = f32::MAX;
+
+        for (monster_transform, monster) in monster_query.iter() {
+            let cur_distance = monster_transform.translation.distance(cannon_glob_transform.translation);
+            if cannon.species == monster.0 && cur_distance < distance {
+                distance = cur_distance;
+
+                let offset: Vec2 = (monster_transform.translation - cannon_glob_transform.translation).truncate();
+                cannon_transform.rotation = Quat::from_rotation_z(-offset.angle_between(Vec2::X));
+
+                cannon.cooldown -= time.delta_seconds();
+                if cannon.cooldown <= 0.0 {
+                    let image = match cannon.species {
+                        Species::Red => game_assets.bullet_red.clone(),
+                        Species::Green => game_assets.bullet_green.clone(),
+                        Species::Blue => game_assets.bullet_blue.clone(),
+                    };
+
+                    let velocity: f32 = match cannon.species {
+                        Species::Red => 12.0,
+                        Species::Green => 18.0,
+                        Species::Blue => 29.0,
+                    };
+
+                    let velocity = Quat::from_rotation_z(-offset.angle_between(Vec2::X)) * Vec3::X * velocity;
+
+                    commands.spawn_bundle(SpriteBundle {
+                        texture: image,
+                        transform: Transform {
+                            translation: cannon_transform.translation.truncate().extend(5.0),
+                            rotation: cannon_transform.rotation,
+                            ..default()
+                        },
+                        ..default()
+                    }).insert(Bullet {
+                        velocity: velocity.truncate(),
+                        species: cannon.species,
+                    });
+
+                    cannon.cooldown = match cannon.species {
+                        Species::Red => 0.7,
+                        Species::Green => 0.5,
+                        Species::Blue => 0.25,
+                    }
+                }
+            }
+        }
+
+        if distance == f32::MAX {
+            cannon_transform.rotate(Quat::from_rotation_z(3.0 * time.delta_seconds()));
+        }
+    }
+}
+
+pub fn spawn_monsters(mut commands: Commands,
+                      mut cooldown: ResMut<MonsterSpawnCooldown>,
+                      game_assets: Res<GameplayAssets>,
+                      time: Res<Time>)
+{
+    cooldown.0 -= time.delta_seconds();
+
+    if cooldown.0 <= 0.0 {
+        cooldown.0 = 5.0 + random::<f32>() * 10.0;
+
+        let distance = 24.0 * 10.0;
+        let angle = random::<f32>() * PI * 2.0;
+        let kind = random::<f32>();
+        let mut species = Species::Red;
+        if kind >= 1.0 / 3.0 && kind < 2.0 / 3.0 {
+            species = Species::Green;
+        }
+        if kind >= 2.0 / 3.0 {
+            species = Species::Blue;
+        }
+
+        let image = match species {
+            Species::Red => game_assets.monster_red.clone(),
+            Species::Green => game_assets.monster_green.clone(),
+            Species::Blue => game_assets.monster_blue.clone(),
+        };
+
+        let position = Quat::from_rotation_z(angle) * vec3(distance, 0.0, 3.7);
+
+        commands.spawn_bundle(SpriteBundle {
+            texture: image,
+            transform: Transform {
+                translation: position,
+                ..default()
+            },
+            ..default()
+        }).insert(Monster(species))
+            .insert(Health(cooldown.1));
+
+        cooldown.1 += 1;
+    }
+}
+
+pub fn move_monsters(mut monsters: Query<(&mut Transform, &Monster)>,
+                     time: Res<Time>,
+                     mut state: ResMut<State<GameState>>)
+{
+    for (mut transform, monster) in monsters.iter_mut() {
+        let dir = -transform.translation.normalize().truncate().extend(0.0);
+        transform.translation += dir * match monster.0 {
+            Species::Red => 27.0 * time.delta_seconds(),
+            Species::Green => 14.0 * time.delta_seconds(),
+            Species::Blue => 9.0 * time.delta_seconds(),
+        };
+
+        if transform.translation.length() <= 24.0 {
+            state.set(GameState::Lose).unwrap();
+        }
+    }
+}
+
+pub fn move_bullets(mut commands: Commands,
+                    mut bullets: Query<(Entity, &mut Transform, &Bullet)>,
+                    mut monsters: Query<(Entity, &mut Transform, &Monster, &mut Health), Without<Bullet>>,
+                    mut wallet: ResMut<Wallet>)
+{
+    for (bullet_entity, mut bullet_transform, bullet) in bullets.iter_mut() {
+        bullet_transform.translation += bullet.velocity.extend(0.0);
+
+        for (monster_entity, monster_transform, monster, mut health) in monsters.iter_mut() {
+            if monster.0 == bullet.species && monster_transform.translation.distance(bullet_transform.translation) < 30.0 {
+                commands.entity(bullet_entity).despawn();
+
+                health.0 -= match monster.0 {
+                    Species::Red => 3,
+                    Species::Green => 2,
+                    Species::Blue => 1,
+                };
+
+                if health.0 <= 0 {
+                    commands.entity(monster_entity).despawn();
+
+                    match monster.0 {
+                        Species::Red => wallet.red_squares += 5,
+                        Species::Green => wallet.green_triangles += 5,
+                        Species::Blue => wallet.blue_circles += 5,
+                    };
+                }
+            }
+        }
+    }
+}

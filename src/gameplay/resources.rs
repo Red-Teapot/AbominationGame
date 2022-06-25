@@ -29,3 +29,5 @@ impl Wallet {
         return false;
     }
 }
+
+pub struct MonsterSpawnCooldown(pub f32, pub i32);

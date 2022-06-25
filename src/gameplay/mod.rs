@@ -29,8 +29,13 @@ pub fn register_systems(app: &mut App) {
         .with_system(core_spinner)
         .with_system(wallet_display)
         .with_system(buy_item)
-        .with_system(drag_ghost));
+        .with_system(drag_ghost)
+        .with_system(update_cannons)
+        .with_system(spawn_monsters)
+        .with_system(move_monsters)
+        .with_system(move_bullets));
 
+    #[cfg(debug_assertions)]
     app.add_plugin(InspectorPlugin::<Wallet>::new());
 }
 
@@ -44,6 +49,8 @@ pub fn gameplay_enter(mut commands: Commands,
         green_triangles: 20,
         blue_circles: 20,
     });
+
+    commands.insert_resource(MonsterSpawnCooldown(10.0, DEFAULT_HEALTH));
 
     let mut world_camera = OrthographicCameraBundle::new_2d();
     world_camera.orthographic_projection.scale = 1.0 / 3.0;

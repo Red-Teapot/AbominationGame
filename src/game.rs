@@ -8,6 +8,7 @@ use bevy_tweening::TweeningPlugin;
 use crate::assets::{GameplayAssets, UIAssets};
 use crate::{gameplay, palette};
 use crate::loading::{loading_end, loading_start};
+use crate::lose::lose_start;
 
 pub fn run(app: &mut App) {
     app.insert_resource(WindowDescriptor {
@@ -38,6 +39,8 @@ pub fn run(app: &mut App) {
 
     gameplay::register_systems(app);
 
+    app.add_system_set(SystemSet::on_enter(GameState::Lose).with_system(lose_start));
+
     app.run();
 }
 
@@ -61,4 +64,5 @@ pub struct PreloadedAssets {
 pub enum GameState {
     LoadingAssets,
     Gameplay,
+    Lose,
 }

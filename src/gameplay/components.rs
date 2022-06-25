@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use crate::palette;
 
-pub const DEFAULT_HEALTH: u8 = 22;
+pub const DEFAULT_HEALTH: i32 = 22;
 
 #[derive(Component)]
 pub struct MainCamera;
@@ -10,9 +10,9 @@ pub struct MainCamera;
 pub struct CoreSpinner;
 
 #[derive(Component)]
-pub struct Health (pub u8);
+pub struct Health (pub i32);
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum Species {
     Red,
     Green,
@@ -61,7 +61,19 @@ pub struct BuyItemButton {
 pub struct ItemPlacementGhost;
 
 #[derive(Component)]
-pub struct Cannon(pub Species);
+pub struct Cannon {
+    pub species: Species,
+    pub cooldown: f32,
+}
 
 #[derive(Component)]
 pub struct CannonBase(pub Entity);
+
+#[derive(Component)]
+pub struct Monster(pub Species);
+
+#[derive(Component)]
+pub struct Bullet {
+    pub species: Species,
+    pub velocity: Vec2,
+}
