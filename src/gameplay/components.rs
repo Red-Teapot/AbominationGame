@@ -4,6 +4,9 @@ use crate::palette;
 pub const DEFAULT_HEALTH: u8 = 22;
 
 #[derive(Component)]
+pub struct MainCamera;
+
+#[derive(Component)]
 pub struct CoreSpinner;
 
 #[derive(Component)]
@@ -34,7 +37,7 @@ impl Money {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Component, Copy, Clone)]
 pub enum Item {
     Connector,
     RedCannon,
@@ -53,3 +56,12 @@ pub struct BuyItemButton {
     pub cost: Money,
     pub item: Item,
 }
+
+#[derive(Component)]
+pub struct ItemPlacementGhost;
+
+#[derive(Component)]
+pub struct Cannon(pub Species);
+
+#[derive(Component)]
+pub struct CannonBase(pub Entity);

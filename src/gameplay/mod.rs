@@ -17,13 +17,19 @@ mod bundles;
 mod resources;
 mod systems;
 
+pub const TILE_NONE: u16 = 0;
+pub const TILE_CORE: u16 = 1;
+pub const TILE_CONNECTOR: u16 = 2;
+pub const TILE_CANNON: u16 = 3;
+
 pub fn register_systems(app: &mut App) {
     app.add_system_set(SystemSet::on_enter(GameState::Gameplay).with_system(gameplay_enter));
 
     app.add_system_set(SystemSet::on_update(GameState::Gameplay)
         .with_system(core_spinner)
         .with_system(wallet_display)
-        .with_system(buy_item));
+        .with_system(buy_item)
+        .with_system(drag_ghost));
 
     app.add_plugin(InspectorPlugin::<Wallet>::new());
 }
@@ -41,7 +47,8 @@ pub fn gameplay_enter(mut commands: Commands,
 
     let mut world_camera = OrthographicCameraBundle::new_2d();
     world_camera.orthographic_projection.scale = 1.0 / 3.0;
-    commands.spawn_bundle(world_camera);
+    commands.spawn_bundle(world_camera)
+        .insert(MainCamera);
 
     commands.spawn_bundle(UiCameraBundle::default());
 
@@ -61,11 +68,17 @@ pub fn gameplay_enter(mut commands: Commands,
         0,
         0,
     );
-    layer_builder.set_all(TileBundle::default());
+    layer_builder.set_all(TileBundle {
+        tile: Tile {
+            texture_index: TILE_NONE,
+            ..default()
+        },
+        ..default()
+    });
 
     layer_builder.set_tile(TilePos(16, 16), TileBundle {
         tile: Tile {
-            texture_index: 1,
+            texture_index: TILE_CORE,
             ..Default::default()
         },
         ..Default::default()
@@ -131,12 +144,12 @@ pub fn gameplay_enter(mut commands: Commands,
             insert_cost_info(panel, Money::new(Species::Green, 10), Item::GreenCannon, &game_assets, &pre_assets, &ui_assets);
             insert_cost_info(panel, Money::new(Species::Blue, 10), Item::BlueCannon, &game_assets, &pre_assets, &ui_assets);
 
-            insert_cost_info(panel, Money::new(Species::Red, 10), Item::ConverterRedGreen, &game_assets, &pre_assets, &ui_assets);
+            /*insert_cost_info(panel, Money::new(Species::Red, 10), Item::ConverterRedGreen, &game_assets, &pre_assets, &ui_assets);
             insert_cost_info(panel, Money::new(Species::Red, 10), Item::ConverterRedBlue, &game_assets, &pre_assets, &ui_assets);
             insert_cost_info(panel, Money::new(Species::Green, 10), Item::ConverterGreenRed, &game_assets, &pre_assets, &ui_assets);
             insert_cost_info(panel, Money::new(Species::Green, 10), Item::ConverterGreenBlue, &game_assets, &pre_assets, &ui_assets);
             insert_cost_info(panel, Money::new(Species::Blue, 10), Item::ConverterBlueRed, &game_assets, &pre_assets, &ui_assets);
-            insert_cost_info(panel, Money::new(Species::Blue, 10), Item::ConverterBlueGreen, &game_assets, &pre_assets, &ui_assets);
+            insert_cost_info(panel, Money::new(Species::Blue, 10), Item::ConverterBlueGreen, &game_assets, &pre_assets, &ui_assets);*/
         });
     });
 }
@@ -159,7 +172,7 @@ fn insert_wallet_info(parent: &mut ChildBuilder, species: Species, ui_assets: &U
     };
 
     parent.spawn_bundle(NodeBundle {
-        color: Color::NONE.into(),
+        color: palette::BLACK.into(),
         ..default()
     }).with_children(|section| {
         section.spawn_bundle(NodeBundle {
@@ -231,7 +244,7 @@ fn insert_cost_info(parent: &mut ChildBuilder,
     };
 
     parent.spawn_bundle(ButtonBundle {
-        color: Color::NONE.into(),
+        color: palette::BLACK.into(),
         style: Style {
             flex_direction: FlexDirection::ColumnReverse,
             align_items: AlignItems::Center,
